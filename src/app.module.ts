@@ -10,12 +10,14 @@ import { User } from './modules/users/users.entity';
 import { Role } from './modules/roles/roles.entity';
 import { Permission } from './modules/permissions/permissions.entity';
 import { Tenant } from './modules/tenants/tenants.entity';
-import { ProductSuppliersModule } from './modules/product/suppliers/product-suppliers.module';
-import { ProductBrandsModule } from './modules/product/brands/product-brands.module';
-import { ProductCategoriesModule } from './modules/product/categories/product-categories.module';
-import { ProductAttributesModule } from './modules/product/attributes/product-attributes.module';
-import { ProductImagesModule } from './modules/product/images/product-images.module';
-import { ProductsModule } from './modules/product/products/products.module';
+import {
+  ProductSuppliersModule,
+  ProductBrandsModule,
+  ProductCategoriesModule,
+  ProductAttributesModule,
+  ProductImagesModule,
+  ProductsModule,
+} from './modules/product';
 import { UploadImagesModule } from './modules/upload-images/upload-images.module';
 
 @Module({
