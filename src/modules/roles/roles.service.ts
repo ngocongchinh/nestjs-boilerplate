@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from './roles.entity';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
 
 @Injectable()
 export class RolesService {
@@ -10,16 +11,27 @@ export class RolesService {
     private rolesRepository: Repository<Role>,
   ) {}
 
-  async create(name: string, tenantId: number): Promise<Role> {
+  async create(name: string, description: string): Promise<Role> {
     const role = new Role();
     role.name = name;
-    role.tenantId = tenantId;
+    role.description = description;
     return this.rolesRepository.save(role);
   }
 
-  async findOne(id: number, tenantId: number): Promise<Role> {
+  async findAll(
+    pagination: PaginationDto,
+  ): Promise<{ data: Role[]; total: number }> {
+    const { page, limit }: any = pagination;
+    const [data, total] = await this.rolesRepository.findAndCount({
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+    return { data, total };
+  }
+
+  async findOne(id: number): Promise<Role> {
     const role = await this.rolesRepository.findOne({
-      where: { id, tenantId },
+      where: { id },
       relations: ['permissions'],
     });
 
@@ -29,9 +41,9 @@ export class RolesService {
     return role;
   }
 
-  async findByName(name: string, tenantId: number): Promise<Role> {
+  async findByName(name: string): Promise<Role> {
     const res = await this.rolesRepository.findOne({
-      where: { name, tenantId },
+      where: { name },
       relations: ['permissions'],
     });
     if (!res) {

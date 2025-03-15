@@ -51,10 +51,10 @@ export class AuthController {
     const isAuthenticated = req.user; // Kiểm tra xem có token không
     if (isAuthenticated) {
       const isSuperAdmin = req.user.roles?.some(
-        (role: any) => role.name === 'super_admin',
+        (role: any) => role.name === 'super',
       );
       const isAdmin = req.user.roles?.some(
-        (role: any) => role.name === 'admin',
+        (role: any) => role.name === 'manager',
       );
       if (!isSuperAdmin && !isAdmin) {
         throw new ForbiddenException(
@@ -100,6 +100,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Profile retrieved', type: Object })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   getProfile(@Req() req) {
-    return req.user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = req.user; // Loại bỏ password
+    return userWithoutPassword;
   }
 }

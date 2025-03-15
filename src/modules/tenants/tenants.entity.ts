@@ -1,6 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  PrimaryGeneratedColumn,
+  OneToMany,
+} from 'typeorm';
 import { User } from '../users/users.entity';
-import { Role } from '../roles/roles.entity';
 import { Permission } from '../permissions/permissions.entity';
 
 @Entity()
@@ -11,11 +17,17 @@ export class Tenant {
   @Column({ unique: true })
   name: string;
 
+  @Column({ type: 'tinyint', default: 1 })
+  status: number;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
   @OneToMany(() => User, (user) => user.tenant)
   users: User[];
-
-  @OneToMany(() => Role, (role) => role.tenant)
-  roles: Role[];
 
   @OneToMany(() => Permission, (permission) => permission.tenant)
   permissions: Permission[];

@@ -6,12 +6,12 @@ import {
   Param,
   UseGuards,
   Req,
-  BadRequestException,
   ForbiddenException,
   Query,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
@@ -34,7 +34,7 @@ export class RolesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new role' })
   @ApiQuery({
-    name: 'tenant',
+    name: 'Admin',
     required: false,
     description: 'Tenant name (Super Admin/Admin only)',
   })
@@ -42,52 +42,29 @@ export class RolesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async create(
     @Body('name') name: string,
-    @Query('tenant') tenantName: string,
+    @Body('description') description: string,
     @Req() req,
   ) {
-    const userTenantId = req.user.tenantId;
     const isSuperAdmin = req.user.roles?.some(
-      (role: any) => role.name === 'super_admin',
+      (role: any) => role.name === 'super',
     );
-    const isAdmin = req.user.roles?.some((role: any) => role.name === 'admin');
-    let targetTenantId = userTenantId;
-
-    if (tenantName) {
-      const tenant = await this.tenantsService.findByName(tenantName);
-      if (!tenant) {
-        throw new BadRequestException(`Tenant '${tenantName}' does not exist`);
-      }
-      if (isSuperAdmin) {
-        targetTenantId = tenant.id;
-      } else if (isAdmin && tenant.id === userTenantId) {
-        targetTenantId = tenant.id;
-      } else {
-        throw new ForbiddenException(
-          'You do not have permission to create roles for this tenant',
-        );
-      }
-    } else if (!isSuperAdmin && !isAdmin) {
+    const isAdmin = req.user.roles?.some(
+      (role: any) => role.name === 'manager',
+    );
+    if (!isSuperAdmin && !isAdmin) {
       throw new ForbiddenException(
         'Only Super Admin or Admin can create roles',
       );
-    } else if (!userTenantId && !isSuperAdmin) {
-      throw new BadRequestException(
-        'Tenant ID is required for non-Super Admin',
-      );
-    }
-
-    if (!targetTenantId && !isSuperAdmin) {
-      throw new BadRequestException('Tenant ID is required');
     }
 
     // Admin không tạo được Admin hoặc Super Admin
-    if (isAdmin && (name === 'admin' || name === 'super_admin')) {
+    if (isAdmin && (name === 'manager' || name === 'super')) {
       throw new ForbiddenException(
         'Admin cannot create Admin or Super Admin roles',
       );
     }
 
-    return this.rolesService.create(name, targetTenantId);
+    return this.rolesService.create(name, description);
   }
 
   @Get(':id')
@@ -101,28 +78,17 @@ export class RolesController {
   })
   @ApiResponse({ status: 200, description: 'Role retrieved', type: Object })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async findOne(
-    @Param('id') id: string,
-    @Query('tenant') tenantName: string,
-    @Req() req,
-  ) {
-    const userTenantId = req.user.tenantId;
-    const isSuperAdmin = req.user.roles?.some(
-      (role: any) => role.name === 'super_admin',
-    );
-    let targetTenantId = userTenantId;
+  async findOne(@Param('id') id: string) {
+    return this.rolesService.findOne(+id);
+  }
 
-    if (tenantName && isSuperAdmin) {
-      const tenant = await this.tenantsService.findByName(tenantName);
-      if (!tenant) {
-        throw new BadRequestException(`Tenant '${tenantName}' does not exist`);
-      }
-      targetTenantId = tenant.id;
-    }
-
-    if (!targetTenantId && !isSuperAdmin) {
-      throw new BadRequestException('Tenant ID is required');
-    }
-    return this.rolesService.findOne(+id, targetTenantId);
+  @Get()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all roles' })
+  @ApiQuery({ type: PaginationDto })
+  @ApiResponse({ status: 200, description: 'List of roles retrieved' })
+  async findAll(@Query() pagination: PaginationDto) {
+    return this.rolesService.findAll(pagination);
   }
 }

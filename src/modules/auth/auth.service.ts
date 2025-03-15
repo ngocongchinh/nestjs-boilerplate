@@ -49,6 +49,7 @@ export class AuthService {
       tenantId = tenant.id;
     }
     const user = await this.usersService.findByEmail(email, tenantId);
+    console.log(await user.validatePassword(pass));
     if (user && (await user.validatePassword(pass))) {
       if (
         tenantName &&
@@ -95,19 +96,22 @@ export class AuthService {
       throw new BadRequestException('Tenant name is required');
     }
 
-    const tenantId = tenant?.id;
-    const defaultRole = await this.rolesService.findByName('user', tenantId);
+    const defaultRole = await this.rolesService.findByName('user');
     if (!defaultRole) {
       throw new BadRequestException(
         `Default role 'user' does not exist for tenant '${tenantName}'`,
       );
     }
 
-    const user = await this.usersService.create({
-      ...registerDto,
-      tenant,
-      roles: [defaultRole],
-    });
+    const user = await this.usersService.create(
+      {
+        ...registerDto,
+        tenant,
+        tenantId: tenant.id,
+        roleIds: [defaultRole.id],
+      },
+      tenant.id,
+    );
     const payload = {
       email: user.email,
       sub: user.id,
@@ -138,7 +142,7 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid token');
     return this.usersService.update(
       user.id,
-      { password: newPassword },
+      { password: newPassword, roleIds: [4] },
       user.tenantId,
     );
   }
@@ -182,20 +186,24 @@ export class AuthService {
     let existingUser = await this.usersService.findByEmail(email, tenantId);
 
     if (!existingUser) {
-      const defaultRole = await this.rolesService.findByName('user', tenantId);
+      const defaultRole = await this.rolesService.findByName('user');
       if (!defaultRole) {
         throw new BadRequestException(
           `Default role 'user' does not exist for tenant '${tenantName}'`,
         );
       }
-      existingUser = await this.usersService.create({
-        email,
-        password: 'ldap_user_no_password', // Không cần password cho LDAP
-        tenant: tenantId ? ({ id: tenantId } as any) : null,
-        roles: [defaultRole],
-        provider: 'ldap',
-        providerId: user.uid,
-      });
+      existingUser = await this.usersService.create(
+        {
+          email,
+          password: 'ldap_user_no_password', // Không cần password cho LDAP
+          tenant: tenantId ? ({ id: tenantId } as any) : null,
+          tenantId: tenantId,
+          roleIds: [defaultRole.id],
+          provider: 'ldap',
+          providerId: user.uid,
+        },
+        tenantId,
+      );
     }
 
     const payload = {

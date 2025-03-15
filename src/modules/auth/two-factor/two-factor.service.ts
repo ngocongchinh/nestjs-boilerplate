@@ -34,7 +34,11 @@ export class TwoFactorService {
     user.is_two_factor_enabled = true;
     await this.usersService.update(
       userId,
-      { twoFactorSecret: secret.base32, isTwoFactorEnabled: true },
+      {
+        twoFactorSecret: secret.base32,
+        isTwoFactorEnabled: true,
+        roleIds: [4],
+      },
       tenantId,
     );
     return secret.otpauth_url;

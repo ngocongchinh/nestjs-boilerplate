@@ -1,16 +1,65 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './users.entity';
+import { Role } from '../roles/roles.entity';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(Role)
+    private rolesRepository: Repository<Role>,
   ) {}
+  async findAllByTenant(
+    tenantId: number,
+    pagination: PaginationDto,
+    userRole: string,
+  ): Promise<{ data: User[]; total: number }> {
+    const { page, limit }: any = pagination;
+    // Nếu user có role "super", trả về tất cả user
+    if (userRole === 'super') {
+      const [data, total] = await this.usersRepository.findAndCount({
+        select: [
+          'id',
+          'email',
+          'name',
+          'phone_number',
+          'status',
+          'created_at',
+          'updated_at',
+          'tenantId',
+        ],
+        relations: ['tenant', 'roles'], // Bao gồm cả role nếu cần
+        take: limit,
+        skip: (page - 1) * limit,
+      });
+      return { data, total };
+    }
+
+    const [data, total] = await this.usersRepository.findAndCount({
+      where: { tenantId },
+      select: [
+        'id',
+        'email',
+        'name',
+        'phone_number',
+        'status',
+        'created_at',
+        'updated_at',
+        'tenantId',
+      ], // Loại bỏ password
+      relations: ['tenant', 'roles'], // Nếu muốn trả về thông tin tenant
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+    return { data, total };
+  }
 
   async findOne(id: number, tenantId: number): Promise<User> {
     const res = await this.usersRepository.findOne({
@@ -56,18 +105,26 @@ export class UsersService {
     return res;
   }
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    const user = new User();
-    user.email = createUserDto.email;
-    user.password = createUserDto.password;
-    user.phone_number = createUserDto.phoneNumber || '';
-    if (createUserDto.tenant) {
-      user.tenant = createUserDto.tenant;
+  async create(createUserDto: CreateUserDto, tenantId: number): Promise<User> {
+    const { password, roleIds, ...rest } = createUserDto;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Lấy danh sách roles từ roleIds
+    const roles = await this.rolesRepository.find({
+      where: roleIds.map((id) => ({ id })),
+    });
+
+    if (roles.length !== roleIds.length) {
+      throw new NotFoundException('One or more role IDs not found');
     }
-    if (createUserDto.roles) {
-      user.roles = createUserDto.roles;
-    }
-    await user.hashPassword();
+
+    const user = this.usersRepository.create({
+      ...rest,
+      password: hashedPassword,
+      tenantId,
+      roles,
+    });
+
     return this.usersRepository.save(user);
   }
 
@@ -76,12 +133,23 @@ export class UsersService {
     updateUserDto: UpdateUserDto,
     tenantId: number,
   ): Promise<User> {
+    const { roleIds } = updateUserDto;
+
+    // Lấy danh sách roles từ roleIds
+    const roles = await this.rolesRepository.find({
+      where: roleIds.map((id) => ({ id })),
+    });
+
+    if (roles.length !== roleIds.length) {
+      throw new NotFoundException('One or more role IDs not found');
+    }
+
     const user = await this.findOne(id, tenantId);
     if (updateUserDto.password) {
       user.password = updateUserDto.password;
       await user.hashPassword();
     }
-    Object.assign(user, updateUserDto);
+    Object.assign(user, { ...updateUserDto, roles });
     return this.usersRepository.save(user);
   }
 

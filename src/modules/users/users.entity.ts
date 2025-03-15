@@ -5,6 +5,8 @@ import {
   ManyToOne,
   ManyToMany,
   JoinTable,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Tenant } from '../tenants/tenants.entity';
 import { Role } from '../roles/roles.entity';
@@ -30,6 +32,15 @@ export class User {
   @Column({ nullable: true })
   avatar: string;
 
+  @Column({ type: 'tinyint', default: 1 })
+  status: number;
+
+  @CreateDateColumn()
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
+
   @Column({ nullable: true })
   provider: string;
 
@@ -44,9 +55,6 @@ export class User {
 
   @Column({ nullable: true })
   two_factor_secret: string;
-
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  created_at: Date;
 
   @ManyToOne(() => Tenant, (tenant) => tenant.users)
   tenant: Tenant;

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from './tenants.entity';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
 
 @Injectable()
 export class TenantsService {
@@ -14,6 +15,17 @@ export class TenantsService {
     const tenant = new Tenant();
     tenant.name = name;
     return this.tenantsRepository.save(tenant);
+  }
+
+  async findAll(
+    pagination: PaginationDto,
+  ): Promise<{ data: Tenant[]; total: number }> {
+    const { page, limit }: any = pagination;
+    const [data, total] = await this.tenantsRepository.findAndCount({
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+    return { data, total };
   }
 
   async findOne(id: number): Promise<Tenant> {

@@ -2,11 +2,11 @@ import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  ManyToOne,
   ManyToMany,
   JoinTable,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { Tenant } from '../tenants/tenants.entity';
 import { Permission } from '../permissions/permissions.entity';
 
 @Entity('role')
@@ -17,11 +17,14 @@ export class Role {
   @Column()
   name: string;
 
-  @ManyToOne(() => Tenant, (tenant) => tenant.roles)
-  tenant: Tenant;
+  @Column({ nullable: true })
+  description?: string;
 
-  @Column({ name: 'tenant_id', nullable: true })
-  tenantId: number;
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @ManyToMany(() => Permission)
   @JoinTable({ name: 'role_permissions_permission' })

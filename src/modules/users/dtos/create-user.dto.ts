@@ -1,4 +1,12 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Tenant } from '../../tenants/tenants.entity';
 import { Role } from '../../roles/roles.entity';
@@ -31,13 +39,22 @@ export class CreateUserDto {
   @IsOptional()
   tenant?: Tenant;
 
+  @IsOptional()
+  tenantId: number;
+
   @ApiProperty({
     description: 'Roles assigned to the user',
     type: () => [Role],
     required: false,
   })
-  @IsOptional()
-  roles?: Role[];
+  @ApiProperty({
+    example: [1, 2],
+    description: 'Array of role IDs for the user',
+  })
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @ArrayMinSize(1) // Yêu cầu ít nhất 1 role
+  roleIds: number[];
 
   @ApiProperty({
     example: 'ldap',

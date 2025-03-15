@@ -15,6 +15,7 @@ import { UsersService } from './users.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
@@ -31,6 +32,21 @@ export class UsersController {
     private usersService: UsersService,
     private tenantsService: TenantsService,
   ) {}
+
+  @Get()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all users by tenant' })
+  @ApiQuery({ type: PaginationDto })
+  @ApiResponse({ status: 200, description: 'List of users retrieved' })
+  async findAll(@Query() pagination: PaginationDto, @Req() req) {
+    const userRole = req.user.role?.name || '';
+    return this.usersService.findAllByTenant(
+      req.user.tenantId,
+      pagination,
+      userRole,
+    );
+  }
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
@@ -50,9 +66,11 @@ export class UsersController {
   ) {
     const userTenantId = req.user.tenantId;
     const isSuperAdmin = req.user.roles?.some(
-      (role: any) => role.name === 'super_admin',
+      (role: any) => role.name === 'super',
     );
-    const isAdmin = req.user.roles?.some((role: any) => role.name === 'admin');
+    const isAdmin = req.user.roles?.some(
+      (role: any) => role.name === 'manager',
+    );
     let targetTenantId = userTenantId;
 
     if (tenantName) {
@@ -83,20 +101,8 @@ export class UsersController {
       throw new BadRequestException('Tenant ID is required');
     }
 
-    // Admin chỉ được tạo Editor hoặc User
-    if (
-      isAdmin &&
-      createUserDto.roles?.some(
-        (role) => role.name === 'admin' || role.name === 'super_admin',
-      )
-    ) {
-      throw new ForbiddenException(
-        'Admin cannot create Admin or Super Admin roles',
-      );
-    }
-
     createUserDto.tenant = { id: targetTenantId } as any;
-    return this.usersService.create(createUserDto);
+    return this.usersService.create(createUserDto, req.user.tenantId);
   }
 
   @Get(':id')
@@ -117,7 +123,7 @@ export class UsersController {
   ) {
     const userTenantId = req.user.tenantId;
     const isSuperAdmin = req.user.roles?.some(
-      (role: any) => role.name === 'super_admin',
+      (role: any) => role.name === 'super',
     );
     let targetTenantId = userTenantId;
 
@@ -147,9 +153,23 @@ export class UsersController {
     @Req() req,
   ) {
     const tenantId = req.user.tenantId;
-    if (!tenantId) {
+    const isSuperAdmin = req.user.roles?.some(
+      (role: any) => role.name === 'super',
+    );
+
+    let targetTenantId = tenantId;
+
+    if (updateUserDto.tenant && isSuperAdmin) {
+      const tenant = await this.tenantsService.findOne(updateUserDto.tenant.id);
+      if (!tenant) {
+        throw new BadRequestException('Tenant does not exist');
+      }
+      targetTenantId = tenant.id;
+    }
+
+    if (!targetTenantId && !isSuperAdmin) {
       throw new BadRequestException('Tenant ID is required');
     }
-    return this.usersService.update(+id, updateUserDto, tenantId);
+    return this.usersService.update(+id, updateUserDto, targetTenantId);
   }
 }

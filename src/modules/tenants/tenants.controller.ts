@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   Req,
+  Query,
   ForbiddenException,
 } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
@@ -15,7 +16,9 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
 
 @ApiTags('tenants')
 @Controller('tenants')
@@ -34,7 +37,7 @@ export class TenantsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async create(@Body('name') name: string, @Req() req) {
     const isSuperAdmin = req.user.roles?.some(
-      (role: any) => role.name === 'super_admin',
+      (role: any) => role.name === 'super',
     );
     if (!isSuperAdmin) {
       throw new ForbiddenException('Only Super Admin can create tenants');
@@ -50,5 +53,15 @@ export class TenantsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findOne(@Param('id') id: string) {
     return this.tenantsService.findOne(+id);
+  }
+
+  @Get()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all tenants' })
+  @ApiQuery({ type: PaginationDto })
+  @ApiResponse({ status: 200, description: 'List of tenants retrieved' })
+  async findAll(@Query() pagination: PaginationDto) {
+    return this.tenantsService.findAll(pagination);
   }
 }
