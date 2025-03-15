@@ -59,11 +59,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 201, description: 'User created', type: Object })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(
-    @Body() createUserDto: CreateUserDto,
-    @Query('tenant') tenantName: string,
-    @Req() req,
-  ) {
+  async create(@Body() createUserDto: CreateUserDto, @Req() req) {
     const userTenantId = req.user.tenantId;
     const isSuperAdmin = req.user.roles?.some(
       (role: any) => role.name === 'super',
@@ -73,27 +69,13 @@ export class UsersController {
     );
     let targetTenantId = userTenantId;
 
-    if (tenantName) {
-      const tenant = await this.tenantsService.findByName(tenantName);
-      if (!tenant) {
-        throw new BadRequestException(`Tenant '${tenantName}' does not exist`);
-      }
-      if (isSuperAdmin) {
-        targetTenantId = tenant.id; // Super Admin có thể tạo ở bất kỳ tenant
-      } else if (isAdmin && tenant.id === userTenantId) {
-        targetTenantId = tenant.id; // Admin chỉ tạo trong tenant của mình
-      } else {
-        throw new ForbiddenException(
-          'You do not have permission to create users for this tenant',
-        );
-      }
-    } else if (!isSuperAdmin && !isAdmin) {
+    if (isSuperAdmin) {
+      targetTenantId = createUserDto.tenantId; // Super Admin có thể tạo ở bất kỳ tenant
+    } else if (isAdmin && createUserDto.tenantId === userTenantId) {
+      targetTenantId = createUserDto.tenantId; // Admin chỉ tạo trong tenant của mình
+    } else {
       throw new ForbiddenException(
-        'Only Super Admin or Admin can create users',
-      );
-    } else if (!userTenantId && !isSuperAdmin) {
-      throw new BadRequestException(
-        'Tenant ID is required for non-Super Admin',
+        'You do not have permission to create users for this tenant',
       );
     }
 
@@ -102,7 +84,8 @@ export class UsersController {
     }
 
     createUserDto.tenant = { id: targetTenantId } as any;
-    return this.usersService.create(createUserDto, req.user.tenantId);
+    createUserDto.tenantId = targetTenantId;
+    return this.usersService.create(createUserDto, targetTenantId);
   }
 
   @Get(':id')

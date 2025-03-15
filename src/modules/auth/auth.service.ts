@@ -49,7 +49,6 @@ export class AuthService {
       tenantId = tenant.id;
     }
     const user = await this.usersService.findByEmail(email, tenantId);
-    console.log(await user.validatePassword(pass));
     if (user && (await user.validatePassword(pass))) {
       if (
         tenantName &&
