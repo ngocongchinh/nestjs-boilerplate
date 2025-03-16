@@ -7,7 +7,6 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../users/users.entity';
-import { Permission } from '../permissions/permissions.entity';
 
 @Entity()
 export class Tenant {
@@ -28,7 +27,4 @@ export class Tenant {
 
   @OneToMany(() => User, (user) => user.tenant)
   users: User[];
-
-  @OneToMany(() => Permission, (permission) => permission.tenant)
-  permissions: Permission[];
 }

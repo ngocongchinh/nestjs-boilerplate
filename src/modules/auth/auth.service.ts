@@ -8,10 +8,12 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { RolesService } from '../roles/roles.service';
+import { MailerService } from '@nestjs-modules/mailer';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
 import * as nodemailer from 'nodemailer';
+import * as crypto from 'crypto';
 import { User } from '../users/users.entity';
 
 @Injectable()
@@ -24,6 +26,7 @@ export class AuthService {
     private rolesService: RolesService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private mailerService: MailerService,
   ) {
     this.transporter = nodemailer.createTransport({
       host: 'smtp.example.com',
@@ -49,6 +52,17 @@ export class AuthService {
       tenantId = tenant.id;
     }
     const user = await this.usersService.findByEmail(email, tenantId);
+    // Kiểm tra user tồn tại, status, và isActivated
+    if (!user) {
+      throw new BadRequestException('Invalid credentials');
+    }
+    if (user.status === 0) {
+      throw new BadRequestException('Account is inactive');
+    }
+    if (!user.isActivated) {
+      throw new BadRequestException('Account not activated');
+    }
+
     if (user && (await user.validatePassword(pass))) {
       if (
         tenantName &&
@@ -81,7 +95,14 @@ export class AuthService {
     };
     return {
       access_token: this.jwtService.sign(payload),
+      user,
     };
+  }
+
+  logout(): { message: string } {
+    // Vì JWT là stateless, không cần làm gì với token ở server-side
+    // Nếu cần blacklist token, mày cần lưu token vào Redis hoặc DB
+    return { message: 'Logout successful' };
   }
 
   async register(registerDto: RegisterDto, tenantName?: string) {
@@ -95,31 +116,79 @@ export class AuthService {
       throw new BadRequestException('Tenant name is required');
     }
 
-    const defaultRole = await this.rolesService.findByName('user');
+    const defaultRole = await this.rolesService.findByName('user', tenant.id);
     if (!defaultRole) {
       throw new BadRequestException(
         `Default role 'user' does not exist for tenant '${tenantName}'`,
       );
     }
+    // Kiểm tra username hoặc email đã tồn tại chưa
+    const existingUser = await this.usersService.findByEmail(
+      registerDto.email,
+      tenant.id,
+    );
+    if (existingUser) {
+      throw new BadRequestException('Username or email already exists');
+    }
 
-    const user = await this.usersService.create(
+    // Tạo activation token
+    const activationToken = crypto.randomBytes(32).toString('hex');
+
+    await this.usersService.create(
       {
         ...registerDto,
+        isActivated: false,
+        activationToken,
         tenant,
         tenantId: tenant.id,
         roleIds: [defaultRole.id],
       },
       tenant.id,
     );
-    const payload = {
-      email: user.email,
-      sub: user.id,
-      tenantId: user.tenantId,
-      tenantName,
-    };
+
+    // Gửi email kích hoạt
+    const activationUrl = `http://localhost:3000/auth/activate?token=${activationToken}`;
+    // await this.mailerService.sendMail({
+    //   to: registerDto.email,
+    //   subject: 'Activate Your Account',
+    //   template: './activation',
+    //   context: {
+    //     activationUrl,
+    //   },
+    // });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      activationUrl,
+      message:
+        'Registration successful. Please check your email to activate your account.',
     };
+
+    // const payload = {
+    //   email: user.email,
+    //   sub: user.id,
+    //   tenantId: user.tenantId,
+    //   tenantName,
+    // };
+    // return {
+    //   access_token: this.jwtService.sign(payload),
+    // };
+  }
+
+  async activate(token: string): Promise<{ message: string }> {
+    const user = await this.usersService.findOneByActivationToken(token);
+    if (!user) {
+      throw new BadRequestException('Invalid or expired activation token');
+    }
+
+    // user.isActivated = true;
+    // user.activationToken = null; // Xóa token sau khi kích hoạt
+    await this.usersService.update(
+      user.id,
+      { roleIds: [4], isActivated: true, activationToken: null },
+      user.tenantId,
+    );
+
+    return { message: 'Account activated successfully. You can now log in.' };
   }
 
   async sendPasswordResetLink(email: string) {
@@ -185,7 +254,7 @@ export class AuthService {
     let existingUser = await this.usersService.findByEmail(email, tenantId);
 
     if (!existingUser) {
-      const defaultRole = await this.rolesService.findByName('user');
+      const defaultRole = await this.rolesService.findByName('user', tenantId);
       if (!defaultRole) {
         throw new BadRequestException(
           `Default role 'user' does not exist for tenant '${tenantName}'`,

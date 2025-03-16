@@ -37,6 +37,16 @@ export class UpdateUserDto {
   @IsOptional()
   phoneNumber?: string;
 
+  @IsOptional()
+  isActivated?: boolean;
+
+  @ApiProperty({
+    description: 'Activation token',
+    required: false,
+  })
+  @IsOptional()
+  activationToken?: string | null | undefined;
+
   @ApiProperty({
     description: 'Two-factor authentication status',
     example: false,

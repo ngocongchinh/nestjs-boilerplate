@@ -8,10 +8,8 @@ import {
   Req,
   ForbiddenException,
   Query,
+  Patch,
 } from '@nestjs/common';
-import { RolesService } from './roles.service';
-import { TenantsService } from '../tenants/tenants.service';
-import { PaginationDto } from '../../common/dtos/pagination.dto';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
@@ -19,15 +17,17 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
+import { RolesService } from './roles.service';
+import { PaginationDto } from '../../common/dtos/pagination.dto';
+import { CreateRoleDto } from './dtos/create-role.dto';
+import { UpdateRoleDto } from './dtos/update-role.dto';
 
 @ApiTags('roles')
 @Controller('roles')
 export class RolesController {
-  constructor(
-    private rolesService: RolesService,
-    private tenantsService: TenantsService,
-  ) {}
+  constructor(private rolesService: RolesService) {}
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
@@ -40,11 +40,7 @@ export class RolesController {
   })
   @ApiResponse({ status: 201, description: 'Role created', type: Object })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(
-    @Body('name') name: string,
-    @Body('description') description: string,
-    @Req() req,
-  ) {
+  async create(@Body() createRoleDto: CreateRoleDto, @Req() req) {
     const isSuperAdmin = req.user.roles?.some(
       (role: any) => role.name === 'super',
     );
@@ -57,14 +53,20 @@ export class RolesController {
       );
     }
 
-    // Admin không tạo được Admin hoặc Super Admin
-    if (isAdmin && (name === 'manager' || name === 'super')) {
-      throw new ForbiddenException(
-        'Admin cannot create Admin or Super Admin roles',
-      );
-    }
-
-    return this.rolesService.create(name, description);
+    return this.rolesService.create(createRoleDto, req.user.tenantId);
+  }
+  @Patch(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a role' })
+  @ApiBody({ type: UpdateRoleDto })
+  @ApiResponse({ status: 200, description: 'Role updated successfully' })
+  async update(
+    @Param('id') id: number,
+    @Body() updateRoleDto: UpdateRoleDto,
+    @Req() req,
+  ) {
+    return this.rolesService.update(id, req.user.tenantId, updateRoleDto);
   }
 
   @Get(':id')
@@ -78,8 +80,8 @@ export class RolesController {
   })
   @ApiResponse({ status: 200, description: 'Role retrieved', type: Object })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async findOne(@Param('id') id: string) {
-    return this.rolesService.findOne(+id);
+  async findOne(@Param('id') id: string, @Req() req) {
+    return this.rolesService.findOne(+id, req.user.tenantId);
   }
 
   @Get()
@@ -88,7 +90,7 @@ export class RolesController {
   @ApiOperation({ summary: 'Get all roles' })
   @ApiQuery({ type: PaginationDto })
   @ApiResponse({ status: 200, description: 'List of roles retrieved' })
-  async findAll(@Query() pagination: PaginationDto) {
-    return this.rolesService.findAll(pagination);
+  async findAll(@Query() pagination: PaginationDto, @Req() req) {
+    return this.rolesService.findAll(req.user.tenantId, pagination);
   }
 }

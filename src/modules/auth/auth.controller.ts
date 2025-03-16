@@ -36,6 +36,16 @@ export class AuthController {
     return this.authService.login(loginDto, tenantName);
   }
 
+  @Post('logout')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout user' })
+  @ApiResponse({ status: 200, description: 'Logout successful' })
+  logout() {
+    // Token đã được xác thực qua AuthGuard, chỉ cần gọi logout
+    return this.authService.logout();
+  }
+
   @Post('register')
   @ApiOperation({
     summary: 'Register a new user (Super Admin/Admin can specify tenant)',
@@ -71,6 +81,18 @@ export class AuthController {
       }
       return this.authService.register(registerDto, tenantName);
     }
+  }
+
+  @Get('activate')
+  @ApiOperation({ summary: 'Activate user account' })
+  @ApiQuery({
+    name: 'token',
+    type: String,
+    description: 'Activation token from email',
+  })
+  @ApiResponse({ status: 200, description: 'Account activated successfully' })
+  async activate(@Query('token') token: string) {
+    return this.authService.activate(token);
   }
 
   @Post('forgot-password')

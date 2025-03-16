@@ -16,6 +16,8 @@ import { RolesModule } from '../roles/roles.module';
 import { TwoFactorService } from './two-factor/two-factor.service';
 import { TwoFactorController } from './two-factor/two-factor.controller';
 import { TenantsController } from '../tenants/tenants.controller';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 
 @Module({
   imports: [
@@ -37,6 +39,25 @@ import { TenantsController } from '../tenants/tenants.controller';
         };
       },
       inject: [ConfigService],
+    }),
+    MailerModule.forRoot({
+      transport: {
+        host: 'smtp.gmail.com', // Hoặc SMTP server
+        port: 587,
+        secure: false,
+        auth: {
+          user: 'email@gmail.com', // Thay bằng email của mày
+          pass: 'Abc111!!!', // Thay bằng app password nếu dùng Gmail
+        },
+      },
+      defaults: {
+        from: '"Your App" <email@gmail.com>',
+      },
+      template: {
+        dir: __dirname + '/templates', // Thư mục chứa template email
+        adapter: new HandlebarsAdapter(),
+        options: { strict: true },
+      },
     }),
   ],
   controllers: [AuthController, TwoFactorController, TenantsController],

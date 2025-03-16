@@ -35,6 +35,12 @@ export class User {
   @Column({ type: 'tinyint', default: 1 })
   status: number;
 
+  @Column({ type: 'boolean', default: false })
+  isActivated: boolean;
+
+  @Column({ nullable: true })
+  activationToken?: string;
+
   @CreateDateColumn()
   created_at: Date;
 

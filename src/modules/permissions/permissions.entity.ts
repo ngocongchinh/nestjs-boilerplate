@@ -1,5 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
-import { Tenant } from '../tenants/tenants.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('permission')
 export class Permission {
@@ -12,9 +17,9 @@ export class Permission {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @ManyToOne(() => Tenant, (tenant) => tenant.permissions)
-  tenant: Tenant;
+  @CreateDateColumn()
+  createdAt: Date;
 
-  @Column({ name: 'tenant_id', nullable: true }) // Thêm cột tenant_id
-  tenantId: number;
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

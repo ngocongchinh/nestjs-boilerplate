@@ -32,6 +32,20 @@ export class CreateUserDto {
   phoneNumber?: string;
 
   @ApiProperty({
+    description: 'Status of the user',
+    required: false,
+  })
+  @IsOptional()
+  isActivated?: boolean;
+
+  @ApiProperty({
+    description: 'Activation token',
+    required: false,
+  })
+  @IsOptional()
+  activationToken?: string | null | undefined;
+
+  @ApiProperty({
     description: 'Tenant associated with the user',
     type: () => Tenant,
     required: false,

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from './users.entity';
 import { Role } from '../roles/roles.entity';
 import { CreateUserDto } from './dtos/create-user.dto';
@@ -76,16 +76,20 @@ export class UsersService {
 
   async findByEmail(email: string, tenantId?: number): Promise<User> {
     const where = tenantId ? { email, tenantId } : { email };
-    const res = await this.usersRepository.findOne({
+    const res: any = await this.usersRepository.findOne({
       where,
       relations: ['roles', 'tenant'],
     });
 
-    if (!res) {
-      throw new Error(` ${email} not found`);
-    }
-
     return res;
+  }
+
+  async findOneByActivationToken(activationToken: string): Promise<User> {
+    const user: any = await this.usersRepository.findOne({
+      where: { activationToken },
+      relations: ['roles'],
+    });
+    return user;
   }
 
   async findByProvider(
@@ -106,12 +110,13 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto, tenantId: number): Promise<User> {
-    const { password, roleIds, ...rest } = createUserDto;
+    const { password, roleIds, isActivated, activationToken, ...rest } =
+      createUserDto;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Lấy danh sách roles từ roleIds
     const roles = await this.rolesRepository.find({
-      where: roleIds.map((id) => ({ id })),
+      where: { id: In(roleIds), tenantId },
     });
 
     if (roles.length !== roleIds.length) {
@@ -121,6 +126,8 @@ export class UsersService {
     const user = this.usersRepository.create({
       ...rest,
       password: hashedPassword,
+      isActivated: isActivated || false,
+      activationToken: activationToken || '',
       tenantId,
       roles,
     });

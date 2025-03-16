@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from './tenants.entity';
+import { Role } from '../roles/roles.entity';
 import { PaginationDto } from '../../common/dtos/pagination.dto';
 
 @Injectable()
@@ -9,12 +10,38 @@ export class TenantsService {
   constructor(
     @InjectRepository(Tenant)
     private tenantsRepository: Repository<Tenant>,
+    @InjectRepository(Role)
+    private rolesRepository: Repository<Role>,
   ) {}
 
   async create(name: string): Promise<Tenant> {
     const tenant = new Tenant();
     tenant.name = name;
-    return this.tenantsRepository.save(tenant);
+    const savedTenant = await this.tenantsRepository.save(tenant);
+    // Tạo 3 role mặc định
+    const defaultRoles = [
+      {
+        name: 'manager',
+        description: 'Manager',
+        tenantId: savedTenant.id,
+        tenant: savedTenant,
+      },
+      {
+        name: 'editor',
+        description: 'Editor',
+        tenantId: savedTenant.id,
+        tenant: savedTenant,
+      },
+      {
+        name: 'user',
+        description: 'User',
+        tenantId: savedTenant.id,
+        tenant: savedTenant,
+      },
+    ];
+
+    await this.rolesRepository.save(defaultRoles);
+    return savedTenant;
   }
 
   async findAll(
